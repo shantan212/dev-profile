@@ -14,10 +14,8 @@ export default function CTA() {
   const earlyAccessKey =
     import.meta.env.VITE_COUNTAPI_EARLY_ACCESS_KEY || "early-access"
 
-  const localVisitorsKey =
-    countApiNamespace != null ? `local-visitors::${countApiNamespace}` : null
-  const localEarlyAccessKey =
-    countApiNamespace != null ? `local-early-access::${countApiNamespace}` : null
+  const sessionVisitorsHitKey =
+    countApiNamespace != null ? `visitors-hit::${countApiNamespace}` : null
 
   const visitorsUrl = useMemo(() => {
     if (!countApiNamespace || !visitorsKey) return null
@@ -26,9 +24,23 @@ export default function CTA() {
     )}/${encodeURIComponent(visitorsKey)}`
   }, [countApiNamespace, visitorsKey])
 
+  const visitorsGetUrl = useMemo(() => {
+    if (!countApiNamespace || !visitorsKey) return null
+    return `https://api.countapi.xyz/get/${encodeURIComponent(
+      countApiNamespace
+    )}/${encodeURIComponent(visitorsKey)}`
+  }, [countApiNamespace, visitorsKey])
+
   const earlyAccessUrl = useMemo(() => {
     if (!countApiNamespace || !earlyAccessKey) return null
     return `https://api.countapi.xyz/hit/${encodeURIComponent(
+      countApiNamespace
+    )}/${encodeURIComponent(earlyAccessKey)}`
+  }, [countApiNamespace, earlyAccessKey])
+
+  const earlyAccessGetUrl = useMemo(() => {
+    if (!countApiNamespace || !earlyAccessKey) return null
+    return `https://api.countapi.xyz/get/${encodeURIComponent(
       countApiNamespace
     )}/${encodeURIComponent(earlyAccessKey)}`
   }, [countApiNamespace, earlyAccessKey])
@@ -41,24 +53,27 @@ export default function CTA() {
   const [earlyAccess, setEarlyAccess] = useState(null)
 
   useEffect(() => {
-    if (!localVisitorsKey) return
-
-    try {
-      const current = Number(window.localStorage.getItem(localVisitorsKey) || 0)
-      const next = current + 1
-      window.localStorage.setItem(localVisitorsKey, String(next))
-      setVisitors(next)
-    } catch {
-      // ignore
-    }
-  }, [localVisitorsKey])
-
-  useEffect(() => {
     if (!visitorsUrl) return
 
     let cancelled = false
 
-    fetch(visitorsUrl)
+    let shouldHit = true
+    if (sessionVisitorsHitKey) {
+      try {
+        if (window.sessionStorage.getItem(sessionVisitorsHitKey) === "1") {
+          shouldHit = false
+        } else {
+          window.sessionStorage.setItem(sessionVisitorsHitKey, "1")
+        }
+      } catch {
+        shouldHit = true
+      }
+    }
+
+    const url = shouldHit ? visitorsUrl : visitorsGetUrl
+    if (!url) return
+
+    fetch(url)
       .then(r => r.json())
       .then(data => {
         if (cancelled) return
@@ -69,29 +84,14 @@ export default function CTA() {
     return () => {
       cancelled = true
     }
-  }, [visitorsUrl])
+  }, [sessionVisitorsHitKey, visitorsGetUrl, visitorsUrl])
 
   useEffect(() => {
-    if (!localEarlyAccessKey) return
-
-    try {
-      const current = Number(window.localStorage.getItem(localEarlyAccessKey) || 0)
-      setEarlyAccess(current)
-    } catch {
-      // ignore
-    }
-  }, [localEarlyAccessKey])
-
-  useEffect(() => {
-    if (!countApiNamespace || !earlyAccessKey) return
-
-    const getUrl = `https://api.countapi.xyz/get/${encodeURIComponent(
-      countApiNamespace
-    )}/${encodeURIComponent(earlyAccessKey)}`
+    if (!earlyAccessGetUrl) return
 
     let cancelled = false
 
-    fetch(getUrl)
+    fetch(earlyAccessGetUrl)
       .then(r => r.json())
       .then(data => {
         if (cancelled) return
@@ -102,7 +102,7 @@ export default function CTA() {
     return () => {
       cancelled = true
     }
-  }, [countApiNamespace, earlyAccessKey])
+  }, [earlyAccessGetUrl])
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -134,19 +134,6 @@ export default function CTA() {
       setStatus("success")
       setMessage("You’re on the list. We’ll email you when early access opens.")
       setEmail("")
-
-      if (localEarlyAccessKey) {
-        try {
-          const current = Number(
-            window.localStorage.getItem(localEarlyAccessKey) || 0
-          )
-          const next = current + 1
-          window.localStorage.setItem(localEarlyAccessKey, String(next))
-          setEarlyAccess(next)
-        } catch {
-          // ignore
-        }
-      }
 
       if (earlyAccessUrl) {
         fetch(earlyAccessUrl)
