@@ -11,22 +11,30 @@ import {
 } from "firebase/firestore"
 
 function getFirebaseConfig() {
-  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY
-  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID
-  const appId = import.meta.env.VITE_FIREBASE_APP_ID
-
-  if (!apiKey || !authDomain || !projectId || !appId) {
-    throw new Error(
-      "Missing Firebase config. Set VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_APP_ID."
-    )
-  }
+  const apiKey =
+    import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAxBU5nph4RomelNFo_9H7V0VQeE3DC2cc"
+  const authDomain =
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "live-cv-91386.firebaseapp.com"
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || "live-cv-91386"
+  const storageBucket =
+    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
+    "live-cv-91386.firebasestorage.app"
+  const messagingSenderId =
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "582585237972"
+  const appId =
+    import.meta.env.VITE_FIREBASE_APP_ID ||
+    "1:582585237972:web:273235968376c0887e9641"
+  const measurementId =
+    import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-JS8L7EWZF6"
 
   return {
     apiKey,
     authDomain,
     projectId,
+    storageBucket,
+    messagingSenderId,
     appId,
+    measurementId,
   }
 }
 
