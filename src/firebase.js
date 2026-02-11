@@ -3,7 +3,6 @@ import {
   doc,
   getDoc,
   getFirestore,
-  increment,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -72,10 +71,18 @@ export async function incrementCounter(counterId, by = 1) {
       return
     }
 
-    tx.update(ref, {
-      value: increment(by),
-      updatedAt: serverTimestamp(),
-    })
+    const data = snap.data()
+    const current = typeof data?.value === "number" ? data.value : 0
+    const next = current + by
+
+    tx.set(
+      ref,
+      {
+        value: next,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    )
   })
 
   return readCounter(counterId)

@@ -8,11 +8,6 @@ export default function CTA() {
   const earlyAccessCounterId =
     import.meta.env.VITE_EARLY_ACCESS_COUNTER_ID || "early-access"
 
-  const sessionVisitorsHitKey = useMemo(() => {
-    if (typeof window === "undefined") return null
-    return `visitors-hit::${window.location.host}${window.location.pathname}`
-  }, [])
-
   const [email, setEmail] = useState("")
   const [status, setStatus] = useState("idle")
   const [message, setMessage] = useState("")
@@ -25,22 +20,7 @@ export default function CTA() {
 
     async function run() {
       try {
-        let shouldHit = true
-        if (sessionVisitorsHitKey) {
-          try {
-            if (window.sessionStorage.getItem(sessionVisitorsHitKey) === "1") {
-              shouldHit = false
-            } else {
-              window.sessionStorage.setItem(sessionVisitorsHitKey, "1")
-            }
-          } catch {
-            shouldHit = true
-          }
-        }
-
-        const value = shouldHit
-          ? await incrementCounter(visitorsCounterId, 1)
-          : await readCounter(visitorsCounterId)
+        const value = await incrementCounter(visitorsCounterId, 1)
 
         if (!cancelled) setVisitors(value)
       } catch {
@@ -53,7 +33,7 @@ export default function CTA() {
     return () => {
       cancelled = true
     }
-  }, [sessionVisitorsHitKey, visitorsCounterId])
+  }, [visitorsCounterId])
 
   useEffect(() => {
     let cancelled = false
