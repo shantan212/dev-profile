@@ -1,49 +1,17 @@
 import { useEffect, useMemo, useState } from "react"
+import { incrementCounter, readCounter } from "../firebase"
 
 export default function CTA() {
   const formspreeEndpoint = import.meta.env.VITE_FORMSPREE_ENDPOINT
 
-  const defaultNamespace =
-    typeof window !== "undefined"
-      ? `dev-profile-demo-${window.location.host}${window.location.pathname}`
-      : null
+  const visitorsCounterId = import.meta.env.VITE_VISITORS_COUNTER_ID || "visitors"
+  const earlyAccessCounterId =
+    import.meta.env.VITE_EARLY_ACCESS_COUNTER_ID || "early-access"
 
-  const countApiNamespace =
-    import.meta.env.VITE_COUNTAPI_NAMESPACE || defaultNamespace
-  const visitorsKey = import.meta.env.VITE_COUNTAPI_VISITORS_KEY || "visitors"
-  const earlyAccessKey =
-    import.meta.env.VITE_COUNTAPI_EARLY_ACCESS_KEY || "early-access"
-
-  const sessionVisitorsHitKey =
-    countApiNamespace != null ? `visitors-hit::${countApiNamespace}` : null
-
-  const visitorsUrl = useMemo(() => {
-    if (!countApiNamespace || !visitorsKey) return null
-    return `https://api.countapi.xyz/hit/${encodeURIComponent(
-      countApiNamespace
-    )}/${encodeURIComponent(visitorsKey)}`
-  }, [countApiNamespace, visitorsKey])
-
-  const visitorsGetUrl = useMemo(() => {
-    if (!countApiNamespace || !visitorsKey) return null
-    return `https://api.countapi.xyz/get/${encodeURIComponent(
-      countApiNamespace
-    )}/${encodeURIComponent(visitorsKey)}`
-  }, [countApiNamespace, visitorsKey])
-
-  const earlyAccessUrl = useMemo(() => {
-    if (!countApiNamespace || !earlyAccessKey) return null
-    return `https://api.countapi.xyz/hit/${encodeURIComponent(
-      countApiNamespace
-    )}/${encodeURIComponent(earlyAccessKey)}`
-  }, [countApiNamespace, earlyAccessKey])
-
-  const earlyAccessGetUrl = useMemo(() => {
-    if (!countApiNamespace || !earlyAccessKey) return null
-    return `https://api.countapi.xyz/get/${encodeURIComponent(
-      countApiNamespace
-    )}/${encodeURIComponent(earlyAccessKey)}`
-  }, [countApiNamespace, earlyAccessKey])
+  const sessionVisitorsHitKey = useMemo(() => {
+    if (typeof window === "undefined") return null
+    return `visitors-hit::${window.location.host}${window.location.pathname}`
+  }, [])
 
   const [email, setEmail] = useState("")
   const [status, setStatus] = useState("idle")
@@ -53,56 +21,58 @@ export default function CTA() {
   const [earlyAccess, setEarlyAccess] = useState(null)
 
   useEffect(() => {
-    if (!visitorsUrl) return
-
     let cancelled = false
 
-    let shouldHit = true
-    if (sessionVisitorsHitKey) {
+    async function run() {
       try {
-        if (window.sessionStorage.getItem(sessionVisitorsHitKey) === "1") {
-          shouldHit = false
-        } else {
-          window.sessionStorage.setItem(sessionVisitorsHitKey, "1")
+        let shouldHit = true
+        if (sessionVisitorsHitKey) {
+          try {
+            if (window.sessionStorage.getItem(sessionVisitorsHitKey) === "1") {
+              shouldHit = false
+            } else {
+              window.sessionStorage.setItem(sessionVisitorsHitKey, "1")
+            }
+          } catch {
+            shouldHit = true
+          }
         }
+
+        const value = shouldHit
+          ? await incrementCounter(visitorsCounterId, 1)
+          : await readCounter(visitorsCounterId)
+
+        if (!cancelled) setVisitors(value)
       } catch {
-        shouldHit = true
+        if (!cancelled) setVisitors(null)
       }
     }
 
-    const url = shouldHit ? visitorsUrl : visitorsGetUrl
-    if (!url) return
-
-    fetch(url)
-      .then(r => r.json())
-      .then(data => {
-        if (cancelled) return
-        if (typeof data?.value === "number") setVisitors(data.value)
-      })
-      .catch(() => {})
+    run()
 
     return () => {
       cancelled = true
     }
-  }, [sessionVisitorsHitKey, visitorsGetUrl, visitorsUrl])
+  }, [sessionVisitorsHitKey, visitorsCounterId])
 
   useEffect(() => {
-    if (!earlyAccessGetUrl) return
-
     let cancelled = false
 
-    fetch(earlyAccessGetUrl)
-      .then(r => r.json())
-      .then(data => {
-        if (cancelled) return
-        if (typeof data?.value === "number") setEarlyAccess(data.value)
-      })
-      .catch(() => {})
+    async function run() {
+      try {
+        const value = await readCounter(earlyAccessCounterId)
+        if (!cancelled) setEarlyAccess(value)
+      } catch {
+        if (!cancelled) setEarlyAccess(null)
+      }
+    }
+
+    run()
 
     return () => {
       cancelled = true
     }
-  }, [earlyAccessGetUrl])
+  }, [earlyAccessCounterId])
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -135,13 +105,11 @@ export default function CTA() {
       setMessage("You’re on the list. We’ll email you when early access opens.")
       setEmail("")
 
-      if (earlyAccessUrl) {
-        fetch(earlyAccessUrl)
-          .then(r => r.json())
-          .then(data => {
-            if (typeof data?.value === "number") setEarlyAccess(data.value)
-          })
-          .catch(() => {})
+      try {
+        const value = await incrementCounter(earlyAccessCounterId, 1)
+        setEarlyAccess(value)
+      } catch {
+        // ignore
       }
     } catch {
       setStatus("error")
